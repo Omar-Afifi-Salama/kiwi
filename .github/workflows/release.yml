@@ -22,6 +22,10 @@ jobs:
             - name: Install Dependencies
               run: bun install
 
+            # Fixes the Bun compiler error caused by Ink's optional dependency
+            - name: Install Missing Ink Dependency
+              run: bun add -D react-devtools-core
+
             - name: Run Tests
               run: bun test
 
@@ -45,40 +49,22 @@ jobs:
             - name: Install Dependencies
               run: bun install
 
+            # Fixes the Bun compiler error caused by Ink's optional dependency
+            - name: Install Missing Ink Dependency
+              run: bun add -D react-devtools-core
+
             - name: Compile Standalone Binaries
-              run: |
-                  mkdir -p dist-bin
-
-                  echo "Building for Linux..."
-                  bun build --compile --target=bun-linux-x64 ./src/index.ts --outfile dist-bin/kiwi-linux-x64
-
-                  echo "Building for Windows (with embedded icon)..."
-                  bun build --compile --target=bun-windows-x64 ./src/index.ts --outfile dist-bin/kiwi-win-x64.exe --windows-icon public/kiwi.ico
-
-                  echo "Building for macOS..."
-                  bun build --compile --target=bun-darwin-arm64 ./src/index.ts --outfile dist-bin/kiwi-mac-arm64
-
-            - name: Package Binaries with Public Assets
               run: |
                   mkdir -p release-artifacts
 
-                  # 1. Package Linux
-                  mkdir -p build-linux
-                  cp dist-bin/kiwi-linux-x64 build-linux/kiwi
-                  cp -r public build-linux/public
-                  tar -czvf release-artifacts/kiwi-linux-x64.tar.gz -C build-linux .
+                  echo "Building for Linux..."
+                  bun build --compile --target=bun-linux-x64 ./src/index.ts --asset ./public --outfile release-artifacts/kiwi-linux-x64
 
-                  # 2. Package Windows (.zip includes executable + public assets folder)
-                  mkdir -p build-win
-                  cp dist-bin/kiwi-win-x64.exe build-win/kiwi.exe
-                  cp -r public build-win/public
-                  zip -r release-artifacts/kiwi-win-x64.zip build-win
+                  echo "Building for Windows (with embedded icon)..."
+                  bun build --compile --target=bun-windows-x64 ./src/index.ts --asset ./public --windows-icon ./icons/kiwi-icon.ico --outfile release-artifacts/kiwi-win-x64.exe 
 
-                  # 3. Package macOS
-                  mkdir -p build-mac
-                  cp dist-bin/kiwi-mac-arm64 build-mac/kiwi
-                  cp -r public build-mac/public
-                  tar -czvf release-artifacts/kiwi-mac-arm64.tar.gz -C build-mac .
+                  echo "Building for macOS..."
+                  bun build --compile --target=bun-darwin-arm64 ./src/index.ts --asset ./public --macos-icon ./icons/kiwi-icon.icns --outfile release-artifacts/kiwi-mac-arm64
 
             - name: Publish GitHub Release
               uses: softprops/action-gh-release@v2
