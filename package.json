@@ -9,8 +9,8 @@
         "test": "node --import tsx --test tests/**/*.test.ts",
         "build:dist": "tsc",
         "build:linux": "bun build --compile --target=bun-linux-x64 ./src/index.ts --asset ./public --outfile dist-bin/kiwi-linux-x64",
-        "build:windows": "bun build --compile --target=bun-windows-x64 ./src/index.ts --asset ./public --windows-icon ./icons/kiwi-icon.ico --outfile dist-bin/kiwi-win-x64.exe",
-        "build:macos": "bun build --compile --target=bun-macos-arm64 ./src/index.ts --asset ./public --macos-icon ./icons/kiwi-icon.icns --outfile dist-bin/kiwi-mac-arm64",
+        "build:windows": "bun build --compile --target=bun-windows-x64 ./src/index.ts --asset ./public --windows-icon ./assets/kiwi-icon.ico --outfile dist-bin/kiwi-win-x64.exe",
+        "build:macos": "bun build --compile --target=bun-macos-arm64 ./src/index.ts --asset ./public --macos-icon ./assets/kiwi-icon.icns --outfile dist-bin/kiwi-mac-arm64",
         "build:all": "npm run build:linux && npm run build:windows && npm run build:macos",
         "gen:banner": "node ./scripts/generate-banner.js"
     },

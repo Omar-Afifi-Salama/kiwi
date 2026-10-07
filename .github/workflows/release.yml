@@ -38,11 +38,11 @@ jobs:
 
                     - os: windows-latest
                       file_name: kiwi-win-x64.exe
-                      build_cmd: bun build --compile --target=bun-windows-x64 ./src/index.ts --asset ./public --windows-icon ./icons/kiwi-icon.ico --outfile release-artifacts/kiwi-win-x64.exe
+                      build_cmd: bun build --compile --target=bun-windows-x64 ./src/index.ts --asset ./public --windows-icon ./assets/kiwi-icon.ico --outfile release-artifacts/kiwi-win-x64.exe
 
                     - os: macos-latest
                       file_name: kiwi-mac-arm64
-                      build_cmd: bun build --compile --target=bun-darwin-arm64 ./src/index.ts --asset ./public --macos-icon ./icons/kiwi-icon.icns --outfile release-artifacts/kiwi-mac-arm64
+                      build_cmd: bun build --compile --target=bun-darwin-arm64 ./src/index.ts --asset ./public --macos-icon ./assets/kiwi-icon.icns --outfile release-artifacts/kiwi-mac-arm64
 
         permissions:
             contents: write
