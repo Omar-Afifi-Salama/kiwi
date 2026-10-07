@@ -1,0 +1,51 @@
+name: Build & Release Binaries
+
+on:
+    push:
+        tags:
+            - "v*" # Triggers automatically when you push a version tag like v1.0.0
+
+jobs:
+    release:
+        name: Build and Release Kiwi
+        runs-on: ubuntu-latest
+
+        # Required permissions to create a release and upload binary assets
+        permissions:
+            contents: write
+
+        steps:
+            - name: Checkout Repository
+              uses: actions/checkout@v4
+
+            - name: Set up Bun
+              uses: oven-sh/setup-bun@v1
+              with:
+                  bun-version: latest
+
+            - name: Install Dependencies
+              run: bun install
+
+            - name: Compile Standalone Binaries
+              run: |
+                  mkdir -p dist-bin
+
+                  echo "Building for Linux..."
+                  bun build --compile --target=bun-linux-x64 ./src/index.ts --outfile dist-bin/kiwi-linux-x64
+
+                  echo "Building for Windows..."
+                  bun build --compile --target=bun-windows-x64 ./src/index.ts --outfile dist-bin/kiwi-win-x64.exe
+
+                  echo "Building for macOS (Apple Silicon)..."
+                  bun build --compile --target=bun-darwin-arm64 ./src/index.ts --outfile dist-bin/kiwi-mac-arm64
+
+            - name: Publish GitHub Release
+              uses: softprops/action-gh-release@v2
+              with:
+                  files: |
+                      dist-bin/*
+                  draft: false
+                  prerelease: false
+                  generate_release_notes: true
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

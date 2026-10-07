@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Club Local Drop - Host Control Center</title>
+        <style>
+            :root {
+                --bg-primary: #020617;
+                --bg-card: #0f172a;
+                --bg-card-inner: #020617;
+                --border-color: #1e293b;
+                --text-main: #f8fafc;
+                --text-muted: #94a3b8;
+                --accent-indigo: #6366f1;
+                --accent-indigo-hover: #4f46e5;
+                --accent-emerald: #10b981;
+                --accent-amber: #f59e0b;
+                --accent-rose: #f43f5e;
+            }
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+                font-family: system-ui, sans-serif;
+            }
+            body {
+                background-color: var(--bg-primary);
+                color: var(--text-main);
+                padding: 2rem;
+                min-height: 100vh;
+            }
+            .container {
+                max-width: 900px;
+                margin: 0 auto;
+                display: flex;
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+            .card {
+                background-color: var(--bg-card);
+                border: 1px solid var(--border-color);
+                border-radius: 1rem;
+                padding: 1.5rem;
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            }
+            .header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            h1 {
+                font-size: 1.5rem;
+                color: var(--accent-indigo);
+                margin-bottom: 0.25rem;
+            }
+            h2 {
+                font-size: 1.1rem;
+                color: var(--text-main);
+                margin-bottom: 1rem;
+            }
+            p,
+            .subtitle {
+                font-size: 0.875rem;
+                color: var(--text-muted);
+            }
+            .url-text {
+                color: #818cf8;
+                font-family: monospace;
+            }
+            .badge-group {
+                display: flex;
+                gap: 1rem;
+                align-items: center;
+            }
+            .status-badge {
+                background-color: var(--bg-card-inner);
+                border: 1px solid var(--border-color);
+                padding: 0.5rem 1rem;
+                border-radius: 0.75rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                font-size: 0.75rem;
+                font-family: monospace;
+            }
+            .pulse-dot {
+                width: 10px;
+                height: 10px;
+                background-color: var(--accent-emerald);
+                border-radius: 50%;
+                animation: pulse 2s infinite;
+            }
+            @keyframes pulse {
+                0% {
+                    transform: scale(0.95);
+                    opacity: 0.8;
+                }
+                50% {
+                    transform: scale(1.2);
+                    opacity: 1;
+                }
+                100% {
+                    transform: scale(0.95);
+                    opacity: 0.8;
+                }
+            }
+            .grid-2 {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 1.5rem;
+            }
+            .form-group {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+                margin-bottom: 1rem;
+            }
+            input[type="file"] {
+                font-size: 0.8rem;
+                color: var(--text-muted);
+                background: var(--bg-card-inner);
+                border: 1px solid var(--border-color);
+                padding: 0.5rem;
+                border-radius: 0.5rem;
+                cursor: pointer;
+            }
+            button {
+                background-color: var(--accent-indigo);
+                color: white;
+                border: none;
+                padding: 0.75rem 1rem;
+                border-radius: 0.75rem;
+                font-weight: 600;
+                font-size: 0.875rem;
+                cursor: pointer;
+                transition: background 0.2s;
+                width: 100%;
+            }
+            button:hover {
+                background-color: var(--accent-indigo-hover);
+            }
+            .toggle-btn {
+                background-color: #334155;
+                color: var(--text-muted);
+                width: auto;
+                padding: 0.25rem 0.75rem;
+                font-size: 0.75rem;
+                cursor: pointer;
+                border: none;
+                border-radius: 0.5rem;
+            }
+            .toggle-btn.active {
+                background-color: var(--accent-emerald);
+                color: white;
+            }
+            .scroll-box {
+                max-height: 14rem;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+                font-family: monospace;
+                font-size: 0.75rem;
+            }
+            .list-item {
+                background-color: var(--bg-card-inner);
+                border: 1px solid var(--border-color);
+                padding: 0.75rem;
+                border-radius: 0.5rem;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .file-name {
+                color: var(--accent-emerald);
+                font-family: monospace;
+                font-size: 0.875rem;
+                word-break: break-all;
+                overflow-wrap: break-word;
+                flex: 1;
+                margin-right: 1rem;
+            }
+            .request-card {
+                background-color: var(--bg-card-inner);
+                border: 1px solid rgba(245, 158, 11, 0.3);
+                padding: 0.75rem;
+                border-radius: 0.5rem;
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            .request-text {
+                font-size: 0.75rem;
+            }
+            .ip-highlight {
+                color: var(--accent-amber);
+                font-weight: bold;
+            }
+            .btn-group {
+                display: flex;
+                gap: 0.5rem;
+            }
+            .btn-accept {
+                background-color: var(--accent-emerald);
+                padding: 0.4rem;
+            }
+            .btn-reject {
+                background-color: var(--accent-rose);
+                padding: 0.4rem;
+            }
+            .italic-muted {
+                color: #475569;
+                font-style: italic;
+                text-align: center;
+                padding: 1rem;
+                font-size: 0.75rem;
+            }
+            .divider {
+                border: none;
+                border-top: 1px solid var(--border-color);
+                margin: 1rem 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="card header">
+                <div>
+                    <h1>🚀 Host Control Center</h1>
+                    <p class="subtitle">
+                        Network URL:
+                        <span id="network-url" class="url-text"
+                            >Loading...</span
+                        >
+                    </p>
+                </div>
+                <div class="badge-group">
+                    <div class="status-badge">
+                        <span>Auto-Accept:</span>
+                        <button
+                            onclick="toggleAutoAccept()"
+                            id="auto-btn"
+                            class="toggle-btn"
+                        >
+                            OFF
+                        </button>
+                    </div>
+                    <div class="status-badge">
+                        <div class="pulse-dot"></div>
+                        <span id="client-count">0 Peers Online</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="card">
+                    <h2>📁 Upload Workshop Files</h2>
+                    <form
+                        action="/upload"
+                        method="POST"
+                        enctype="multipart/form-data"
+                        class="form-group"
+                    >
+                        <input type="file" name="files" multiple required />
+                        <button type="submit">Upload & Host</button>
+                    </form>
+
+                    <hr class="divider" />
+
+                    <p class="subtitle" style="margin-bottom: 0.5rem">
+                        ACTIVE HOSTED FILES
+                    </p>
+                    <div id="file-list" class="scroll-box">
+                        <div class="italic-muted">No files uploaded yet.</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>🛡️ Permission Queue</h2>
+                    <p class="subtitle" style="margin-bottom: 1rem">
+                        If Auto-Accept is OFF, student download requests appear
+                        here.
+                    </p>
+                    <div id="requests-container" class="scroll-box">
+                        <div class="italic-muted">No pending requests.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script src="/socket.io/socket.io.js"></script>
+        <script>
+            document.getElementById("network-url").innerText =
+                window.location.origin;
+            const socket = io();
+
+            function toggleAutoAccept() {
+                fetch("/api/toggle-auto", { method: "POST" })
+                    .then((res) => res.json())
+                    .then((data) => {
+                        const btn = document.getElementById("auto-btn");
+                        btn.innerText = data.autoAccept ? "ON" : "OFF";
+                        if (data.autoAccept) btn.classList.add("active");
+                        else btn.classList.remove("active");
+                    });
+            }
+
+            socket.on("state-update", (data) => {
+                document.getElementById("client-count").innerText =
+                    data.clientCount + " Peers Online";
+
+                const fileList = document.getElementById("file-list");
+                const filesArr = Object.values(data.files);
+                if (filesArr.length === 0) {
+                    fileList.innerHTML =
+                        '<div class="italic-muted">No files uploaded yet.</div>';
+                } else {
+                    fileList.innerHTML = filesArr
+                        .map(
+                            (f) => `
+                    <div class="list-item">
+                        <span class="file-name" title="${f.name}">${f.name}</span>
+                        <a href="/download/${f.id}" target="_blank" style="color: #818cf8; text-decoration: none;">Download</a>
+                    </div>
+                `,
+                        )
+                        .join("");
+                }
+
+                const reqContainer =
+                    document.getElementById("requests-container");
+                const reqsArr = Object.values(data.requests);
+                if (reqsArr.length === 0) {
+                    reqContainer.innerHTML =
+                        '<div class="italic-muted">No pending requests.</div>';
+                } else {
+                    reqContainer.innerHTML = reqsArr
+                        .map(
+                            (r) => `
+                    <div class="request-card">
+                        <div class="request-text">
+                            <span class="ip-highlight">${r.clientIP}</span> wants <strong style="color: #a5b4fc;">${r.fileName}</strong>
+                        </div>
+                        <div class="btn-group">
+                            <button onclick="resolveReq('${r.requestId}', true)" class="btn-accept">Accept</button>
+                            <button onclick="resolveReq('${r.requestId}', false)" class="btn-reject">Reject</button>
+                        </div>
+                    </div>
+                `,
+                        )
+                        .join("");
+                }
+            });
+
+            function resolveReq(requestId, approved) {
+                fetch("/api/resolve-request", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ requestId, approved }),
+                });
+            }
+        </script>
+    </body>
+</html>

@@ -1,0 +1,35 @@
+{
+    "name": "kiwi",
+    "version": "1.0.0",
+    "description": "",
+    "main": "dist/index.js",
+    "scripts": {
+        "start": "node dist/index.js",
+        "dev": "tsx watch src/index.ts",
+        "test": "node --import tsx --test tests/**/*.test.ts",
+        "build:dist": "tsc",
+        "build:linux": "bun build --compile --target=bun-linux-x64 ./src/index.ts --outfile dist-bin/kiwi-linux-x64",
+        "build:windows": "bun build --compile --target=bun-windows-x64 ./src/index.ts --outfile dist-bin/kiwi-win-x64.exe",
+        "build:macos": "bun build --compile --target=bun-macos-arm64 ./src/index.ts --outfile dist-bin/kiwi-mac-arm64",
+        "build:all": "npm run build:linux && npm run build:windows && npm run build:macos"
+    },
+    "keywords": [],
+    "type": "module",
+    "devDependencies": {
+        "@types/express": "^5.0.6",
+        "@types/express-fileupload": "^1.5.1",
+        "@types/node": "^26.6.4",
+        "@types/supertest": "^7.2.1",
+        "supertest": "^7.3.1",
+        "tsx": "^4.23.15",
+        "typescript": "^7.0.2"
+    },
+    "dependencies": {
+        "express": "^5.2.1",
+        "express-fileupload": "^1.5.2",
+        "socket.io": "^4.8.4"
+    },
+    "allowScripts": {
+        "esbuild@0.28.2": true
+    }
+}
