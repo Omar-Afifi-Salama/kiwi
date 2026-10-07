@@ -26,9 +26,23 @@ jobs:
               run: bun test
 
     release:
-        name: Build and Release Kiwi with Assets
+        name: Build and Release Kiwi Binaries
         needs: test
-        runs-on: ubuntu-latest
+        runs-on: ${{ matrix.os }}
+        strategy:
+            matrix:
+                include:
+                    - os: ubuntu-latest
+                      file_name: kiwi-linux-x64
+                      build_cmd: bun build --compile --target=bun-linux-x64 ./src/index.ts --asset ./public --outfile release-artifacts/kiwi-linux-x64
+
+                    - os: windows-latest
+                      file_name: kiwi-win-x64.exe
+                      build_cmd: bun build --compile --target=bun-windows-x64 ./src/index.ts --asset ./public --windows-icon ./icons/kiwi-icon.ico --outfile release-artifacts/kiwi-win-x64.exe
+
+                    - os: macos-latest
+                      file_name: kiwi-mac-arm64
+                      build_cmd: bun build --compile --target=bun-darwin-arm64 ./src/index.ts --asset ./public --macos-icon ./icons/kiwi-icon.icns --outfile release-artifacts/kiwi-mac-arm64
 
         permissions:
             contents: write
@@ -45,24 +59,16 @@ jobs:
             - name: Install Dependencies
               run: bun install
 
-            - name: Compile Standalone Binaries
+            - name: Compile Standalone Binary
+              shell: bash
               run: |
                   mkdir -p release-artifacts
-
-                  echo "Building for Linux..."
-                  bun build --compile --target=bun-linux-x64 ./src/index.ts --asset ./public --outfile release-artifacts/kiwi-linux-x64
-
-                  echo "Building for Windows..."
-                  bun build --compile --target=bun-windows-x64 ./src/index.ts --asset ./public --windows-icon ./icons/kiwi-icon.ico --outfile release-artifacts/kiwi-win-x64.exe 
-
-                  echo "Building for macOS..."
-                  bun build --compile --target=bun-darwin-arm64 ./src/index.ts --asset ./public --macos-icon ./icons/kiwi-icon.icns --outfile release-artifacts/kiwi-mac-arm64
+                  ${{ matrix.build_cmd }}
 
             - name: Publish GitHub Release
               uses: softprops/action-gh-release@v2
               with:
-                  files: |
-                      release-artifacts/*
+                  files: release-artifacts/${{ matrix.file_name }}
                   draft: false
                   prerelease: false
                   generate_release_notes: true
