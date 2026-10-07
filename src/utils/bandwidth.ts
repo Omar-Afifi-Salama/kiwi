@@ -1,5 +1,6 @@
 import { execSync } from "child_process";
 import os from "os";
+import pc from "picocolors";
 
 // Helper to auto-detect wireless interface name on Linux robustly
 export function getWirelessInterface(): string {
@@ -144,9 +145,14 @@ export function getDynamicHostBandwidth(): number {
     // Convert Megabits/sec to Bytes/sec, then apply a 60% safety ceiling for Wi-Fi half-duplex overhead
     const megabitsToBytesPerSec = (linkSpeedMbps * 1_000_000) / 8;
     const safeUsableBandwidth = Math.round(megabitsToBytesPerSec * 0.6);
+    const ceilingMB = (safeUsableBandwidth / (1024 * 1024)).toFixed(1);
 
+    // Styled output with picocolors
     console.log(
-        `📊 Active Wi-Fi Link Speed: ~${linkSpeedMbps} Mbps | Usable Host Ceiling: ${(safeUsableBandwidth / (1024 * 1024)).toFixed(1)} MB/s`,
+        pc.cyan(`📊 Active Wi-Fi Link Speed: `) +
+            pc.bold(`~${linkSpeedMbps} Mbps`) +
+            pc.dim(` | Usable Host Ceiling: `) +
+            pc.green(`${ceilingMB} MB/s`),
     );
 
     return Math.max(safeUsableBandwidth, 10 * 1024 * 1024); // Minimum floor of 10 MB/s

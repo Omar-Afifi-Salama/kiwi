@@ -1,13 +1,13 @@
 :root {
-    --bg-primary: #020617;
-    --bg-card: #0f172a;
-    --border-color: #1e293b;
-    --text-main: #f8fafc;
-    --text-muted: #94a3b8;
-    --accent-indigo: #6366f1;
-    --accent-indigo-hover: #4f46e5;
-    --accent-emerald: #10b981;
-    --accent-rose: #f43f5e;
+    --bg-primary: #fbf9f5;
+    --bg-card: #f4efe6;
+    --border-color: #e2d9cc;
+    --text-main: #2d2621;
+    --text-muted: #786d63;
+    --accent-green: #16a34a;
+    --accent-green-hover: #15803d;
+    --accent-lime: #65a30d;
+    --accent-rose: #e11d48;
 }
 * {
     box-sizing: border-box;
@@ -31,11 +31,11 @@ body {
     border: 1px solid var(--border-color);
     border-radius: 1rem;
     padding: 2rem;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 10px 25px -5px rgba(45, 38, 33, 0.08);
 }
 h1 {
     font-size: 1.5rem;
-    color: var(--accent-indigo);
+    color: var(--accent-green);
     margin-bottom: 0.5rem;
 }
 p {
@@ -51,7 +51,7 @@ p {
     overflow-y: auto;
 }
 .file-card {
-    background-color: #020617;
+    background-color: #ffffff;
     border: 1px solid var(--border-color);
     padding: 1rem;
     border-radius: 0.75rem;
@@ -61,15 +61,14 @@ p {
     gap: 1rem;
 }
 .file-name {
-    color: var(--accent-emerald);
+    color: var(--accent-green);
     font-family: monospace;
     font-size: 0.875rem;
-    word-break: break-all;
     overflow-wrap: break-word;
     flex: 1;
 }
 .download-btn {
-    background-color: var(--accent-indigo);
+    background-color: var(--accent-green);
     color: white;
     border: none;
     padding: 0.5rem 1rem;
@@ -81,10 +80,10 @@ p {
     transition: background 0.2s;
 }
 .download-btn:hover {
-    background-color: var(--accent-indigo-hover);
+    background-color: var(--accent-green-hover);
 }
 .italic-muted {
-    color: #475569;
+    color: #a89f91;
     font-style: italic;
     text-align: center;
     padding: 2rem;
@@ -96,7 +95,7 @@ p {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(2, 6, 23, 0.85);
+    background: rgba(45, 38, 33, 0.6);
     backdrop-filter: blur(4px);
     justify-content: center;
     align-items: center;
@@ -111,13 +110,12 @@ p {
     max-width: 400px;
     width: 100%;
     text-align: center;
-    /* space-y: 1rem; */
 }
 .spinner {
     width: 40px;
     height: 40px;
-    border: 3px solid rgba(99, 102, 241, 0.2);
-    border-top-color: var(--accent-indigo);
+    border: 3px solid rgba(22, 163, 74, 0.2);
+    border-top-color: var(--accent-green);
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin: 0 auto 1rem auto;

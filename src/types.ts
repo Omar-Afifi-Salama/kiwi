@@ -12,7 +12,7 @@ export interface PendingRequest {
     fileId: string;
     fileName: string;
     clientIP: string;
-    res: Response;
+    timestamp: number;
 }
 
 export interface SafePendingRequest {

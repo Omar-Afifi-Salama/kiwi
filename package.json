@@ -8,10 +8,11 @@
         "dev": "tsx src/index.ts",
         "test": "node --import tsx --test tests/**/*.test.ts",
         "build:dist": "tsc",
-        "build:linux": "bun build --compile --target=bun-linux-x64 ./src/index.ts --outfile dist-bin/kiwi-linux-x64",
-        "build:windows": "bun build --compile --target=bun-windows-x64 ./src/index.ts --outfile dist-bin/kiwi-win-x64.exe --windows-icon kiwi-icon.ico",
-        "build:macos": "bun build --compile --target=bun-macos-arm64 ./src/index.ts --outfile dist-bin/kiwi-mac-arm64 --macos-icon kiwi.icns",
-        "build:all": "npm run build:linux && npm run build:windows && npm run build:macos"
+        "build:linux": "bun build --compile --target=bun-linux-x64 ./src/index.ts --asset ./public --outfile dist-bin/kiwi-linux-x64",
+        "build:windows": "bun build --compile --target=bun-windows-x64 ./src/index.ts --asset ./public --outfile dist-bin/kiwi-win-x64.exe --windows-icon ./assets/kiwi-icon.ico",
+        "build:macos": "bun build --compile --target=bun-macos-arm64 ./src/index.ts --asset ./public --asset ./public --outfile dist-bin/kiwi-mac-arm64 --macos-icon ./assets/kiwi.icns",
+        "build:all": "npm run build:linux && npm run build:windows && npm run build:macos",
+        "gen:banner": "node ./scripts/generate-banner.js"
     },
     "keywords": [],
     "type": "module",
@@ -19,6 +20,7 @@
         "@types/express": "^5.0.6",
         "@types/express-fileupload": "^1.5.1",
         "@types/node": "^26.6.4",
+        "@types/qrcode-terminal": "^0.12.2",
         "@types/supertest": "^7.2.1",
         "supertest": "^7.3.1",
         "tsx": "^4.23.15",
@@ -26,14 +28,17 @@
     },
     "dependencies": {
         "@clack/prompts": "^1.8.1",
+        "canvas": "^3.2.3",
         "express": "^5.2.1",
         "express-fileupload": "^1.5.2",
         "oh-my-logo": "^0.5.0",
         "ora": "^9.4.1",
         "picocolors": "^1.1.1",
+        "qrcode-terminal": "^0.12.0",
         "socket.io": "^4.8.4"
     },
     "allowScripts": {
-        "esbuild@0.28.2": true
+        "esbuild@0.28.2": true,
+        "canvas@3.2.3": true
     }
 }

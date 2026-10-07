@@ -1,18 +1,22 @@
-import type { Response } from "express";
 import { getDynamicHostBandwidth } from "./utils/bandwidth.js";
 import type { PendingRequest, StoredFile } from "./types.js";
-
-// rendering it here so it appear first inside the terminal
 import { renderKiwiLogo } from "./utils/logo.js";
+
 await renderKiwiLogo();
 
 export const uploadedFiles: Record<string, StoredFile> = {};
 export const pendingRequests: Record<string, PendingRequest> = {};
 export const activeClients = new Set<string>();
 
-// Dynamic Host Bandwidth setup
+// Global approval & rejection records
+export const approvedDownloads: Record<
+    string,
+    { fileId: string; fileName: string; approvedAt: number }
+> = {};
+export const rejectedRequests = new Set<string>();
+
 export const MAX_HOST_BANDWIDTH = getDynamicHostBandwidth();
-export const MAX_CONCURRENT_DOWNLOADS = 4; // Hard cap to prevent socket thrashing
+export const MAX_CONCURRENT_DOWNLOADS = 4;
 export const activeDownloads = new Set<string>();
 
 export interface QueueItem {
@@ -20,7 +24,6 @@ export interface QueueItem {
     fileId: string;
     fileName: string;
     clientIP: string;
-    res: Response;
     timestamp: number;
 }
 
@@ -41,7 +44,6 @@ export function getQueuePosition(requestId: string): number {
 
 export function calculateETA(queuePosition: number): number {
     if (queuePosition === 0) return 0;
-    // Estimate ~1 minute per batch of concurrent downloads ahead
     const batchesAhead = Math.ceil(queuePosition / MAX_CONCURRENT_DOWNLOADS);
     return Math.max(1, batchesAhead);
 }

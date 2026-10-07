@@ -1,84 +1,127 @@
 import { execSync, exec } from "child_process";
 import os from "os";
-import readline from "readline/promises";
-import { stdin as input, stdout as output } from "process";
+import { select, text, isCancel, cancel, note } from "@clack/prompts";
+import pc from "picocolors";
 
-// Helper to auto-detect wireless interface name on Linux
-function getLinuxWirelessInterface(): string {
+export function getActiveWirelessInterface(): string {
+    const platform = os.platform();
+
     try {
-        const output = execSync("nmcli -t -f DEVICE,TYPE device", {
-            stdio: ["pipe", "pipe", "ignore"],
-        }).toString();
-        const lines = output.split("\n");
-        for (const line of lines) {
-            const [device, type] = line.split(":");
-            if (type === "wifi" && device) {
-                return device.trim();
+        if (platform === "linux") {
+            try {
+                const output = execSync("nmcli -t -f DEVICE,TYPE device", {
+                    stdio: ["pipe", "pipe", "ignore"],
+                }).toString();
+                for (const line of output.split("\n")) {
+                    const [device, type] = line.split(":");
+                    if (type === "wifi" && device) return device.trim();
+                }
+            } catch (e) {}
+
+            const interfaces = execSync("ls /sys/class/net/", {
+                stdio: ["pipe", "pipe", "ignore"],
+            })
+                .toString()
+                .split("\n");
+            for (const iface of interfaces) {
+                const trimmed = iface.trim();
+                if (trimmed.startsWith("wl") || trimmed.startsWith("wlan"))
+                    return trimmed;
             }
+            return "wlan0";
+        } else if (platform === "darwin") {
+            try {
+                const output = execSync("networksetup -listallhardwareports", {
+                    stdio: ["pipe", "pipe", "ignore"],
+                }).toString();
+                const lines = output.split("\n");
+                for (let i = 0; i < lines.length; i++) {
+                    if (
+                        lines[i]?.includes("Hardware Port: Wi-Fi") ||
+                        lines[i]?.includes("Hardware Port: AirPort")
+                    ) {
+                        const match =
+                            lines[i + 1]?.match(/Device:\s*(en[0-9]+)/);
+                        if (match && match[1]) return match[1];
+                    }
+                }
+            } catch (e) {}
+            return "en0";
+        } else if (platform === "win32") {
+            try {
+                const output = execSync(
+                    "powershell \"Get-NetAdapter | Where-Object {$_.InterfaceDescription -like '*Wi-Fi*' -or$_.InterfaceDescription -like '*Wireless*'} | Select-Object -ExpandProperty Name\"",
+                    { stdio: ["pipe", "pipe", "ignore"] },
+                )
+                    .toString()
+                    .trim();
+                if (output) return output.split("\n")[0]?.trim() || "Wi-Fi";
+            } catch (e) {}
+            return "Wi-Fi";
         }
-    } catch (e) {
-        // Fallback
-    }
+    } catch (e) {}
     return "wlan0";
 }
 
-/**
- * Interactive prompt allowing the user to choose whether to create a hotspot
- * and enter custom credentials.
- */
 export async function promptHotspotCredentials(): Promise<{
     autoCreate: boolean;
     ssid: string;
     password: string;
 }> {
-    const rl = readline.createInterface({ input, output });
+    const choice = await select({
+        message: pc.bold("Wi-Fi Hotspot Configuration:"),
+        options: [
+            {
+                value: "auto",
+                label: "Automatically create hotspot",
+                hint: "Enter custom SSID & Password",
+            },
+            {
+                value: "manual",
+                label: "I have already created my own hotspot manually",
+            },
+        ],
+    });
 
-    console.log("\n📡 Wi-Fi Hotspot Configuration:");
-    console.log(
-        "  1) Automatically create hotspot (Enter custom SSID & Password)",
-    );
-    console.log("  2) I have already created my own hotspot manually\n");
+    if (isCancel(choice)) {
+        cancel(pc.yellow("Operation cancelled by user."));
+        process.exit(0);
+    }
 
-    try {
-        const choice = await rl.question("👉 Choose an option (1 or 2): [1]: ");
-        const selectedOption = choice.trim();
-
-        if (
-            selectedOption === "" ||
-            selectedOption === "1" ||
-            selectedOption.toLowerCase().includes("auto")
-        ) {
-            console.log("\n--- Hotspot Setup ---");
-            const ssidInput = await rl.question(
-                "👉 Enter Hotspot Name (SSID) [Capital-Ai-Drop-1]: ",
-            );
-            const passInput = await rl.question(
-                "👉 Enter Password (min 8 chars) [workshop123]: ",
-            );
-            rl.close();
-
-            return {
-                autoCreate: true,
-                ssid: ssidInput.trim() || "Capital-Ai-Drop-1",
-                password: passInput.trim() || "workshop123",
-            };
+    if (choice === "auto") {
+        const ssidInput = await text({
+            message: "Enter Hotspot Name (SSID):",
+            initialValue: "Capital-Ai-Drop-1",
+            placeholder: "Capital-Ai-Drop-1",
+        });
+        if (isCancel(ssidInput)) {
+            cancel(pc.yellow("Operation cancelled by user."));
+            process.exit(0);
         }
 
-        rl.close();
-        return { autoCreate: false, ssid: "", password: "" };
-    } catch (e) {
-        rl.close();
+        const passInput = await text({
+            message: "Enter Password (min 8 chars):",
+            initialValue: "workshop123",
+            placeholder: "workshop123",
+            validate: (value) => {
+                if (value && value.length < 8)
+                    return "Password must be at least 8 characters long.";
+            },
+        });
+        if (isCancel(passInput)) {
+            cancel(pc.yellow("Operation cancelled by user."));
+            process.exit(0);
+        }
+
         return {
             autoCreate: true,
-            ssid: "Capital-Ai-Drop",
-            password: "workshop123",
+            ssid: (ssidInput as string).trim() || "Capital-Ai-Drop-1",
+            password: (passInput as string).trim() || "workshop123",
         };
     }
+    return { autoCreate: false, ssid: "", password: "" };
 }
 
-/**
- * Asynchronously starts the Wi-Fi hotspot in the background without blocking the event loop.
- */
 export function createHotspot(
     ssid: string,
     password: string,
@@ -92,51 +135,41 @@ export function createHotspot(
         } else if (platform === "darwin") {
             command = `networksetup -createnetworkservice "ClubHotspot" Wi-Fi && networksetup -setairportpower Wi-Fi on`;
         } else if (platform === "linux") {
-            const interfaceName = getLinuxWirelessInterface();
-            console.log(
-                `🔍 Detected Linux Wi-Fi interface: "${interfaceName}"`,
+            const interfaceName = getActiveWirelessInterface();
+            note(
+                pc.dim(`Detected Linux Wi-Fi interface: "${interfaceName}"`),
+                "Hardware Info",
             );
             command = `nmcli device wifi hotspot ifname ${interfaceName} ssid "${ssid}" password "${password}"`;
         } else {
-            console.log(
-                "⚠️ Hotspot auto-creation not supported on this platform.",
+            note(
+                pc.red("Hotspot auto-creation not supported on this platform."),
+                "Warning",
             );
             resolve(false);
             return;
         }
 
-        console.log(`🌐 Attempting to spin up Wi-Fi Hotspot "${ssid}"...`);
-
-        // Use non-blocking 'exec' so the server continues starting and Ctrl+C works!
         const hotspotProcess = exec(command);
-
-        // Give it a couple seconds to establish, then resolve success
         let resolved = false;
 
-        hotspotProcess.on("error", (error) => {
+        hotspotProcess.on("error", () => {
             if (!resolved) {
                 resolved = true;
-                console.error(`❌ Hotspot error: ${error.message}`);
                 resolve(false);
             }
         });
 
-        // If the process exits immediately with an error code
         hotspotProcess.on("exit", (code) => {
             if (code !== 0 && !resolved) {
                 resolved = true;
-                console.error(`❌ Hotspot exited with code ${code}`);
                 resolve(false);
             }
         });
 
-        // Assume success after a short timeout if no immediate failure occurs
         setTimeout(() => {
             if (!resolved) {
                 resolved = true;
-                console.log(
-                    `✅ Hotspot active! Connected devices can now join "${ssid}".`,
-                );
                 resolve(true);
             }
         }, 2000);

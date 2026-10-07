@@ -1,6 +1,10 @@
 import { Router, type Request, type Response } from "express";
-import fs from "fs";
-import { uploadedFiles, pendingRequests, toggleAutoAccept } from "../state.js";
+import {
+    pendingRequests,
+    toggleAutoAccept,
+    approvedDownloads,
+    rejectedRequests,
+} from "../state.js";
 import { broadcastState } from "../sockets/index.js";
 
 const router = Router();
@@ -10,35 +14,23 @@ router.post("/toggle-auto", (req: Request, res: Response) => {
     res.json({ autoAccept: newState });
 });
 
-function streamFile(
-    file: { name: string; path: string; size: number },
-    res: Response,
-) {
-    const stat = fs.statSync(file.path);
-    res.writeHead(200, {
-        "Content-Type": "application/octet-stream",
-        "Content-Disposition": `attachment; filename="${file.name}"`,
-        "Content-Length": stat.size,
-    });
-    fs.createReadStream(file.path).pipe(res);
-}
-
-router.post("/resolve-request", (req: Request, res: Response) => {
+router.post("/resolve-request", (req: Request, res: Response): void => {
     const { requestId, approved } = req.body;
     const request = pendingRequests[requestId];
+
     if (!request) {
-        return res.status(400).send("Request not found.");
+        res.status(400).send("Request not found.");
+        return;
     }
 
     if (approved) {
-        const file = uploadedFiles[request.fileId];
-        if (file) {
-            streamFile(file, request.res);
-        } else {
-            request.res.status(404).send("File missing.");
-        }
+        approvedDownloads[requestId] = {
+            fileId: request.fileId,
+            fileName: request.fileName,
+            approvedAt: Date.now(),
+        };
     } else {
-        request.res.status(403).send("Download denied by host.");
+        rejectedRequests.add(requestId);
     }
 
     delete pendingRequests[requestId];

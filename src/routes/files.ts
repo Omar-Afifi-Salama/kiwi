@@ -12,6 +12,7 @@ import {
     getQueuePosition,
     calculateETA,
     getAutoAccept,
+    approvedDownloads,
     type QueueItem,
 } from "../state.js";
 import { broadcastState } from "../sockets/index.js";
@@ -23,69 +24,39 @@ if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-export function processQueue() {
+export function processQueue(): void {
     while (
         downloadQueue.length > 0 &&
         activeDownloads.size < MAX_CONCURRENT_DOWNLOADS
     ) {
         const nextItem = downloadQueue.shift();
         if (nextItem) {
-            startActiveDownload(nextItem);
+            approvedDownloads[nextItem.requestId] = {
+                fileId: nextItem.fileId,
+                fileName: nextItem.fileName,
+                approvedAt: Date.now(),
+            };
+            broadcastState();
         }
     }
     broadcastState();
 }
 
-function startActiveDownload(item: QueueItem) {
-    // Prevent writing headers if response is already sent or finished
-    if (item.res.headersSent || item.res.writableEnded) {
-        return;
-    }
-
-    const file = uploadedFiles[item.fileId];
-    if (!file || !fs.existsSync(file.path)) {
-        if (!item.res.headersSent) item.res.status(404).send("File missing.");
-        return;
-    }
-
-    activeDownloads.add(item.requestId);
-    broadcastState();
-
-    const stat = fs.statSync(file.path);
-    item.res.writeHead(200, {
-        "Content-Type": "application/octet-stream",
-        "Content-Disposition": `attachment; filename="${file.name}"`,
-        "Content-Length": stat.size,
-    });
-
-    const readStream = fs.createReadStream(file.path);
-    readStream.pipe(item.res);
-
-    readStream.on("close", () => {
-        activeDownloads.delete(item.requestId);
-        processQueue();
-    });
-
-    readStream.on("error", () => {
-        activeDownloads.delete(item.requestId);
-        processQueue();
-    });
-}
-
-// File Upload Route
-router.post("/upload", (req: Request, res: Response) => {
+// Upload Route
+router.post("/upload", (req: Request, res: Response): void => {
     if (!req.files || !req.files.files) {
-        return res.status(400).send("No files uploaded.");
+        res.status(400).send("No files uploaded.");
+        return;
     }
 
-    let uploaded = req.files.files as UploadedFile | UploadedFile[];
+    const uploaded = req.files.files as UploadedFile | UploadedFile[];
     const filesArray = Array.isArray(uploaded) ? uploaded : [uploaded];
 
-    filesArray.forEach((file) => {
+    filesArray.forEach((file: UploadedFile) => {
         const fileId = crypto.randomBytes(6).toString("hex");
         const targetPath = path.join(uploadDir, `${fileId}_${file.name}`);
 
-        file.mv(targetPath, (err) => {
+        file.mv(targetPath, (err: unknown) => {
             if (err) {
                 console.error("❌ Failed to save uploaded file:", err);
             } else {
@@ -103,16 +74,21 @@ router.post("/upload", (req: Request, res: Response) => {
     res.redirect("/host");
 });
 
-// Download Route & Queue Allocator
-router.get("/download/:id", (req: Request, res: Response) => {
-    const fileId = Array.isArray(req.params.id)
-        ? req.params.id[0]
-        : req.params.id;
-    if (!fileId) return res.status(400).send("Invalid file ID.");
+// 1. Initial Request
+router.get("/download/:id", (req: Request, res: Response): void => {
+    const rawId = req.params.id;
+    const fileId = Array.isArray(rawId) ? rawId[0] : rawId;
+
+    if (!fileId) {
+        res.status(400).send("Invalid file ID.");
+        return;
+    }
 
     const file = uploadedFiles[fileId];
-    if (!file || !fs.existsSync(file.path))
-        return res.status(404).send("File not found.");
+    if (!file || !fs.existsSync(file.path)) {
+        res.status(404).send("File not found.");
+        return;
+    }
 
     const clientIP = (req.ip || "").replace(/^.*:/, "") || "127.0.0.1";
     const requestId = crypto.randomBytes(8).toString("hex");
@@ -122,7 +98,6 @@ router.get("/download/:id", (req: Request, res: Response) => {
         fileId,
         fileName: file.name,
         clientIP,
-        res,
         timestamp: Date.now(),
     };
 
@@ -131,10 +106,23 @@ router.get("/download/:id", (req: Request, res: Response) => {
         downloadQueue.length === 0
     ) {
         if (getAutoAccept()) {
-            startActiveDownload(queueItem);
-        } else {
-            pendingRequests[requestId] = queueItem as any;
+            approvedDownloads[requestId] = {
+                fileId,
+                fileName: file.name,
+                approvedAt: Date.now(),
+            };
             broadcastState();
+            res.json({ status: "approved", requestId });
+            return;
+        } else {
+            pendingRequests[requestId] = queueItem;
+            broadcastState();
+            res.status(202).json({
+                status: "pending_approval",
+                requestId,
+                message: "Request sent to host. Waiting for approval...",
+            });
+            return;
         }
     } else {
         downloadQueue.push(queueItem);
@@ -145,11 +133,76 @@ router.get("/download/:id", (req: Request, res: Response) => {
 
         res.status(202).json({
             status: "queued",
+            requestId,
             position,
             etaMinutes: eta,
-            message: `Network is busy. You are #${position} in the queue. Estimated start: ${eta} min.`,
+            message: `Network is busy. You are #${position} in the queue.`,
         });
+        return;
     }
 });
+
+// 2. High-Speed File Stream Route
+router.get(
+    "/download/stream/:requestId",
+    (req: Request, res: Response): void => {
+        const rawId = req.params.requestId;
+        const requestId = Array.isArray(rawId) ? rawId[0] : rawId;
+
+        if (!requestId) {
+            res.status(400).send("Invalid request ID.");
+            return;
+        }
+
+        const approval = approvedDownloads[requestId];
+        if (!approval) {
+            res.status(403).send("Download request not approved or expired.");
+            return;
+        }
+
+        const file = uploadedFiles[approval.fileId];
+        if (!file || !fs.existsSync(file.path)) {
+            res.status(404).send("File missing on server.");
+            return;
+        }
+
+        // ⚡ Performance Optimization 1: Disable Nagle's algorithm to blast packets immediately
+        if (req.socket) {
+            req.socket.setNoDelay(true);
+        }
+
+        activeDownloads.add(requestId);
+        broadcastState();
+
+        const stat = fs.statSync(file.path);
+
+        // ⚡ Performance Optimization 2: Set TCP keep-alive and octet stream headers
+        res.writeHead(200, {
+            "Content-Type": "application/octet-stream",
+            "Content-Disposition": `attachment; filename="${encodeURIComponent(file.name)}"`,
+            "Content-Length": stat.size,
+            "Accept-Ranges": "bytes",
+            Connection: "keep-alive",
+            "Cache-Control": "no-cache",
+        });
+
+        // ⚡ Performance Optimization 3: Read in 1 MB chunks (1024 * 1024) instead of 64 KB
+        const readStream = fs.createReadStream(file.path, {
+            highWaterMark: 1024 * 1024,
+        });
+
+        readStream.pipe(res);
+
+        const cleanup = () => {
+            // Clean up token after completion so mobile managers don't get 403 on reconnections
+            delete approvedDownloads[requestId];
+            activeDownloads.delete(requestId);
+            processQueue();
+        };
+
+        readStream.on("close", cleanup);
+        readStream.on("error", cleanup);
+    },
+);
 
 export default router;

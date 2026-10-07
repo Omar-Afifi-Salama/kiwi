@@ -27,7 +27,7 @@ socket.on("state-update", (data) => {
                 (f) => `
                     <div class="list-item">
                         <span class="file-name" title="${f.name}">${f.name}</span>
-                        <a href="/download/${f.id}" target="_blank" style="color: #818cf8; text-decoration: none;">Download</a>
+                        <a href="/download/${f.id}" target="_blank" style="color: #84cc16; text-decoration: none;">Download</a>
                     </div>
                 `,
             )
@@ -45,7 +45,7 @@ socket.on("state-update", (data) => {
                 (r) => `
                     <div class="request-card">
                         <div class="request-text">
-                            <span class="ip-highlight">${r.clientIP}</span> wants <strong style="color: #a5b4fc;">${r.fileName}</strong>
+                            <span class="ip-highlight">${r.clientIP}</span> wants <strong style="color: #84cc16;">${r.fileName}</strong>
                         </div>
                         <div class="btn-group">
                             <button onclick="resolveReq('${r.requestId}', true)" class="btn-accept">Accept</button>

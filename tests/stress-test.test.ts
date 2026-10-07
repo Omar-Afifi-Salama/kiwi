@@ -12,6 +12,7 @@ import {
     MAX_CONCURRENT_DOWNLOADS,
     getAutoAccept,
     toggleAutoAccept,
+    approvedDownloads,
 } from "../src/state.js";
 import filesRouter from "../src/routes/files.js";
 import apiRouter from "../src/routes/api.js";
@@ -35,6 +36,7 @@ describe("🧪 Automated Concurrency & Queue Load Test Suite (With Analytics)", 
         downloadQueue.length = 0;
         activeDownloads.clear();
         for (const key in uploadedFiles) delete uploadedFiles[key];
+        for (const key in approvedDownloads) delete approvedDownloads[key];
         testFileIds.length = 0;
 
         if (!getAutoAccept()) {
@@ -125,7 +127,6 @@ describe("🧪 Automated Concurrency & Queue Load Test Suite (With Analytics)", 
         console.log(`\n\n\n` + "".padEnd(TOTAL_CLIENTS + 5, "\n"));
         renderDashboard();
 
-        // Start total test timer
         const testStartTime = performance.now();
 
         const requests = clientStatuses.map(async (client) => {
@@ -138,46 +139,53 @@ describe("🧪 Automated Concurrency & Queue Load Test Suite (With Analytics)", 
             renderDashboard();
 
             try {
-                let res = await request(app)
-                    .get(`/download/${targetFileId}`)
-                    .buffer(false);
+                // Step 1: Request Download (Returns JSON)
+                let res = await request(app).get(`/download/${targetFileId}`);
+                let { status, requestId, position } = res.body;
 
-                while (res.status === 202 && res.body.status === "queued") {
-                    client.state = "QUEUED";
-                    client.details = `Pos #${res.body.position} | Waiting in queue...`;
-                    renderDashboard();
-
-                    await new Promise((r) => setTimeout(r, 500));
-
-                    res = await request(app)
-                        .get(`/download/${targetFileId}`)
-                        .buffer(false);
+                // Step 2: Mimic Socket.io Wait Event (No HTTP polling)
+                if (res.status === 202 && status === "queued") {
+                    while (!approvedDownloads[requestId]) {
+                        client.state = "QUEUED";
+                        client.details = `Pos #${position || "?"} | Waiting (Socket Sim)...`;
+                        renderDashboard();
+                        await new Promise((r) => setTimeout(r, 500));
+                    }
+                    // Request successfully promoted by processQueue
+                    status = "approved";
                 }
 
-                const contentType = res.header["content-type"] || "";
-                const isStream = contentType.includes(
-                    "application/octet-stream",
-                );
-
-                if (isStream || res.status === 200) {
+                if (status === "approved" || res.status === 200) {
                     client.state = "DOWNLOADING";
 
-                    // --- DYNAMIC SPEED & TIME CALCULATION ---
-                    const fileSizeMB = DUMMY_FILE_SIZE / (1024 * 1024); // e.g. 200 MB
-                    const targetSpeedMBs = 5; // Target average Wi-Fi speed: 5 MB/s
-
-                    // Base transfer time in seconds = Size / Speed (e.g., 200 / 5 = 40 seconds)
-                    // (Note: For fast testing, you can scale this down, e.g., multiply by 0.05 so a 40s download takes ~2s in simulation)
+                    const fileSizeMB = DUMMY_FILE_SIZE / (1024 * 1024);
+                    const targetSpeedMBs = 5;
                     const simulatedTransferSeconds =
                         (fileSizeMB / targetSpeedMBs) * 0.05;
-                    const jitter = Math.random() * 0.4 - 0.2; // +/- 20% network jitter
+                    const jitter = Math.random() * 0.4 - 0.2;
                     const finalDurationMs =
                         (simulatedTransferSeconds + jitter) * 1000;
 
                     client.details = `Transferring ~${fileSizeMB}MB @ ${targetSpeedMBs}MB/s...`;
                     renderDashboard();
 
-                    // Wait out the dynamically calculated transfer duration
+                    // Step 3: Stream Request (Consume stream entirely to free up activeDownloads slots)
+                    let isStream = false;
+                    await new Promise((resolve, reject) => {
+                        request(app)
+                            .get(`/download/stream/${requestId}`)
+                            .buffer(false)
+                            .parse((stream, callback) => {
+                                isStream = true;
+                                stream.on("data", () => {}); // Discard bytes in memory
+                                stream.on("end", () => callback(null, ""));
+                            })
+                            .end((err, response) => {
+                                if (err) return reject(err);
+                                resolve(response);
+                            });
+                    });
+
                     await new Promise((r) => setTimeout(r, finalDurationMs));
 
                     const clientEndTime = performance.now();
@@ -186,18 +194,23 @@ describe("🧪 Automated Concurrency & Queue Load Test Suite (With Analytics)", 
 
                     client.state = "COMPLETED";
                     client.details = `Downloaded in ${(totalDurationMs / 1000).toFixed(1)}s`;
+                    renderDashboard();
+
+                    return {
+                        clientId: client.id,
+                        status: 200,
+                        isStream,
+                    };
                 } else {
                     client.state = "ERROR";
-                    client.details = `Status ${res.status}`;
+                    client.details = `Unexpected status ${res.status}`;
+                    renderDashboard();
+                    return {
+                        clientId: client.id,
+                        status: res.status,
+                        isStream: false,
+                    };
                 }
-                renderDashboard();
-
-                return {
-                    clientId: client.id,
-                    status: res.status,
-                    body: res.body,
-                    isStream,
-                };
             } catch (err: any) {
                 client.state = "ERROR";
                 client.details = err.message;
@@ -209,19 +222,14 @@ describe("🧪 Automated Concurrency & Queue Load Test Suite (With Analytics)", 
         const results = await Promise.all(requests);
         const testEndTime = performance.now();
 
-        // Allow background streams to settle
         await new Promise((r) => setTimeout(r, 600));
 
-        // --- METRICS CALCULATIONS ---
         const totalTestDurationSec = (testEndTime - testStartTime) / 1000;
         const avgRequestTimeMs =
             clientDurations.reduce((acc, val) => acc + val, 0) /
             clientDurations.length;
 
-        // Total bytes transferred by active downloads (Max Concurrency slots * 200MB)
-        const activeDownloadsCount = results.filter(
-            (r) => r.status === 200 || r.isStream,
-        ).length;
+        const activeDownloadsCount = results.filter((r) => r.isStream).length;
         const totalBytesTransferred = activeDownloadsCount * DUMMY_FILE_SIZE;
         const avgTransferSpeedMBs =
             totalBytesTransferred / (1024 * 1024) / totalTestDurationSec;
@@ -236,27 +244,19 @@ describe("🧪 Automated Concurrency & Queue Load Test Suite (With Analytics)", 
             `⚡ Average Time Per Request:  ${avgRequestTimeMs.toFixed(2)} ms`,
         );
         console.log(
-            `📦 Total Data Handled/Streamed: ${(totalBytesTransferred / (1024 * 1024)).toFixed(1)} MB`,
+            `📦 Total Data Streamed:       ${(totalBytesTransferred / (1024 * 1024)).toFixed(1)} MB`,
         );
         console.log(
-            `🚀 Aggregate Transfer Speed:   ${avgTransferSpeedMBs.toFixed(2)} MB/s`,
+            `🚀 Aggregate Transfer Speed:  ${avgTransferSpeedMBs.toFixed(2)} MB/s`,
         );
         console.log(
             "===============================================================\n",
         );
 
-        // Allow background streams to settle
-        await new Promise((r) => setTimeout(r, 600));
-
-        const completedClients = results.filter(
-            (r) => r.status === 200 || r.isStream,
-        ).length;
-
-        // Assert that all 30 clients successfully completed their downloads through the queue batches
         assert.equal(
-            completedClients,
+            activeDownloadsCount,
             TOTAL_CLIENTS,
-            `All ${TOTAL_CLIENTS} clients should successfully complete their downloads`,
+            `All ${TOTAL_CLIENTS} clients should successfully complete their streams`,
         );
 
         console.log(

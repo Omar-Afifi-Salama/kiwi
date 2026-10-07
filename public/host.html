@@ -4,7 +4,7 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="icon" type="image/png" href="/kiwi-icon.png" />
-        <title>Club Local Drop - Host Control Center</title>
+        <title>Kiwi - Host Control Center</title>
         <link rel="stylesheet" href="./css/host.css" />
         <script src="./js/host.js" defer></script>
     </head>
@@ -12,7 +12,7 @@
         <div class="container">
             <div class="card header">
                 <div>
-                    <h1>🚀 Host Control Center</h1>
+                    <h1>🥝 Kiwi Host Control</h1>
                     <p class="subtitle">
                         Network URL:
                         <span id="network-url" class="url-text"
@@ -40,7 +40,7 @@
 
             <div class="grid-2">
                 <div class="card">
-                    <h2>📁 Upload Workshop Files</h2>
+                    <h2>📁 Drop & Share Workshop Files</h2>
                     <form
                         action="/upload"
                         method="POST"
@@ -48,27 +48,32 @@
                         class="form-group"
                     >
                         <input type="file" name="files" multiple required />
-                        <button type="submit">Upload & Host</button>
+                        <button type="submit">Upload to Kiwi</button>
                     </form>
 
                     <hr class="divider" />
 
                     <p class="subtitle" style="margin-bottom: 0.5rem">
-                        ACTIVE HOSTED FILES
+                        ACTIVE KIWI SHARES
                     </p>
                     <div id="file-list" class="scroll-box">
-                        <div class="italic-muted">No files uploaded yet.</div>
+                        <div class="italic-muted">
+                            No files hosted yet. Drop files above to start
+                            sharing!
+                        </div>
                     </div>
                 </div>
 
                 <div class="card">
-                    <h2>🛡️ Permission Queue</h2>
+                    <h2>🛡️ Peer Approval Queue</h2>
                     <p class="subtitle" style="margin-bottom: 1rem">
-                        If Auto-Accept is OFF, student download requests appear
-                        here.
+                        When Auto-Accept is OFF, student download requests pop
+                        up here for review.
                     </p>
                     <div id="requests-container" class="scroll-box">
-                        <div class="italic-muted">No pending requests.</div>
+                        <div class="italic-muted">
+                            No pending peer requests.
+                        </div>
                     </div>
                 </div>
             </div>
