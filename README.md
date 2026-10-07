@@ -1,4 +1,4 @@
-# kiwi
+# 🥝 kiwi
 
 A lightweight Express and TypeScript file-sharing tool built to distribute large workshop files (datasets, VM images, starter kits) to a room full of students over a local Wi-Fi hotspot without needing an internet connection.
 

@@ -2,6 +2,10 @@ import type { Response } from "express";
 import { getDynamicHostBandwidth } from "./utils/bandwidth.js";
 import type { PendingRequest, StoredFile } from "./types.js";
 
+// rendering it here so it appear first inside the terminal
+import { renderKiwiLogo } from "./utils/logo.js";
+await renderKiwiLogo();
+
 export const uploadedFiles: Record<string, StoredFile> = {};
 export const pendingRequests: Record<string, PendingRequest> = {};
 export const activeClients = new Set<string>();

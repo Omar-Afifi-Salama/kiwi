@@ -1,20 +1,43 @@
 import { execSync } from "child_process";
 import os from "os";
 
-// Helper to auto-detect wireless interface name on Linux
+// Helper to auto-detect wireless interface name on Linux robustly
 export function getWirelessInterface(): string {
+    const platform = os.platform();
+    if (platform !== "linux") return "wlan0";
+
     try {
-        const output = execSync("nmcli -t -f DEVICE,TYPE device").toString();
-        const lines = output.split("\n");
-        for (const line of lines) {
+        // Method 1: Use NetworkManager (nmcli)
+        const output = execSync("nmcli -t -f DEVICE,TYPE device", {
+            stdio: ["pipe", "pipe", "ignore"],
+        }).toString();
+        for (const line of output.split("\n")) {
             const [device, type] = line.split(":");
             if (type === "wifi" && device) {
                 return device.trim();
             }
         }
     } catch (e) {
-        // Fallback if nmcli fails
+        // nmcli failed or not installed, try alternative
     }
+
+    try {
+        // Method 2: Scan active system network directories (/sys/class/net/)
+        const interfaces = execSync("ls /sys/class/net/", {
+            stdio: ["pipe", "pipe", "ignore"],
+        })
+            .toString()
+            .split("\n");
+        for (const iface of interfaces) {
+            const trimmed = iface.trim();
+            if (trimmed.startsWith("wl") || trimmed.startsWith("wlan")) {
+                return trimmed;
+            }
+        }
+    } catch (e) {
+        // Fallback
+    }
+
     return "wlan0";
 }
 
@@ -27,49 +50,86 @@ export function getDynamicHostBandwidth(): number {
             const interfaceName = getWirelessInterface();
 
             // Method 1: Try reading via 'iw dev <interface> link'
-            try {
-                const iwOutput = execSync(
-                    `iw dev ${interfaceName} link`,
-                ).toString();
-                const match = iwOutput.match(
-                    /(?:tx )?bitrate:\s*([0-9.]+)\s*MBit\/s/i,
-                );
-                if (match && match[1]) {
-                    linkSpeedMbps = parseFloat(match[1]);
+            if (!linkSpeedMbps) {
+                try {
+                    const iwOutput = execSync(`iw dev ${interfaceName} link`, {
+                        stdio: ["pipe", "pipe", "ignore"],
+                    }).toString();
+                    const match = iwOutput.match(
+                        /(?:tx )?bitrate:\s*([0-9.]+)\s*MBit\/s/i,
+                    );
+                    if (match && match[1]) {
+                        linkSpeedMbps = parseFloat(match[1]);
+                    }
+                } catch (err) {
+                    // iw not available or failed
                 }
-            } catch (err) {
-                // Ignore and try next method
             }
 
-            // Method 2: Try reading via 'nmcli' device show if iw didn't return a speed
+            // Method 2: Try querying active Wi-Fi rate via 'nmcli' device wifi list
             if (!linkSpeedMbps) {
                 try {
                     const nmcliOutput = execSync(
-                        `nmcli -f GENERAL.BITRATE device show ${interfaceName}`,
+                        "nmcli -t -f ACTIVE,RATE dev wifi",
+                        { stdio: ["pipe", "pipe", "ignore"] },
                     ).toString();
-                    const match = nmcliOutput.match(/([0-9]+)\s*Mbit\/s/i);
-                    if (match && match[1]) {
-                        linkSpeedMbps = parseInt(match[1], 10);
+                    for (const line of nmcliOutput.split("\n")) {
+                        if (line.startsWith("yes:")) {
+                            const rateStr = line.split(":")[1]; // e.g., "150 Mbit/s"
+                            const match = rateStr?.match(/([0-9.]+)/);
+                            if (match && match[1]) {
+                                linkSpeedMbps = parseFloat(match[1]);
+                                break;
+                            }
+                        }
                     }
                 } catch (err) {
-                    // Ignore
+                    // nmcli dev wifi failed
+                }
+            }
+
+            // Method 3: Try legacy 'iwconfig' fallback
+            if (!linkSpeedMbps) {
+                try {
+                    const iwconfigOutput = execSync(
+                        `iwconfig ${interfaceName}`,
+                        { stdio: ["pipe", "pipe", "ignore"] },
+                    ).toString();
+                    const match = iwconfigOutput.match(
+                        /Bit Rate=([0-9.]+)\s*Mb\/s/i,
+                    );
+                    if (match && match[1]) {
+                        linkSpeedMbps = parseFloat(match[1]);
+                    }
+                } catch (err) {
+                    // iwconfig not installed
                 }
             }
         } else if (platform === "darwin") {
-            const output = execSync(
-                "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I",
-            ).toString();
-            const match = output.match(/lastTxRate:\s*([0-9]+)/);
-            if (match && match[1]) {
-                linkSpeedMbps = parseInt(match[1], 10);
+            try {
+                const output = execSync(
+                    "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I",
+                    { stdio: ["pipe", "pipe", "ignore"] },
+                ).toString();
+                const match = output.match(/lastTxRate:\s*([0-9]+)/);
+                if (match && match[1]) {
+                    linkSpeedMbps = parseInt(match[1], 10);
+                }
+            } catch (e) {
+                // airport failed
             }
         } else if (platform === "win32") {
-            const output = execSync(
-                "powershell \"Get-NetAdapter | Where-Object {$_.Status -eq 'Up'} | Select-Object -ExpandProperty LinkSpeed\"",
-            ).toString();
-            const match = output.match(/([0-9]+)\s*Mbps/i);
-            if (match && match[1]) {
-                linkSpeedMbps = parseInt(match[1], 10);
+            try {
+                const output = execSync(
+                    "powershell \"Get-NetAdapter | Where-Object {$_.Status -eq 'Up'} | Select-Object -ExpandProperty LinkSpeed\"",
+                    { stdio: ["pipe", "pipe", "ignore"] },
+                ).toString();
+                const match = output.match(/([0-9]+)\s*Mbps/i);
+                if (match && match[1]) {
+                    linkSpeedMbps = parseInt(match[1], 10);
+                }
+            } catch (e) {
+                // PowerShell failed
             }
         }
     } catch (e) {

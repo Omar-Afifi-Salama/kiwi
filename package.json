@@ -5,12 +5,12 @@
     "main": "dist/index.js",
     "scripts": {
         "start": "node dist/index.js",
-        "dev": "tsx watch src/index.ts",
+        "dev": "tsx src/index.ts",
         "test": "node --import tsx --test tests/**/*.test.ts",
         "build:dist": "tsc",
         "build:linux": "bun build --compile --target=bun-linux-x64 ./src/index.ts --outfile dist-bin/kiwi-linux-x64",
-        "build:windows": "bun build --compile --target=bun-windows-x64 ./src/index.ts --outfile dist-bin/kiwi-win-x64.exe",
-        "build:macos": "bun build --compile --target=bun-macos-arm64 ./src/index.ts --outfile dist-bin/kiwi-mac-arm64",
+        "build:windows": "bun build --compile --target=bun-windows-x64 ./src/index.ts --outfile dist-bin/kiwi-win-x64.exe --windows-icon kiwi-icon.ico",
+        "build:macos": "bun build --compile --target=bun-macos-arm64 ./src/index.ts --outfile dist-bin/kiwi-mac-arm64 --macos-icon kiwi.icns",
         "build:all": "npm run build:linux && npm run build:windows && npm run build:macos"
     },
     "keywords": [],
@@ -25,8 +25,12 @@
         "typescript": "^7.0.2"
     },
     "dependencies": {
+        "@clack/prompts": "^1.8.1",
         "express": "^5.2.1",
         "express-fileupload": "^1.5.2",
+        "oh-my-logo": "^0.5.0",
+        "ora": "^9.4.1",
+        "picocolors": "^1.1.1",
         "socket.io": "^4.8.4"
     },
     "allowScripts": {
